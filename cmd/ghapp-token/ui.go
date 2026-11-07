@@ -56,6 +56,7 @@ func newUIHandler(cfgPath, key string, port int) http.Handler {
 	mux.HandleFunc("/api/clone", s.api("POST", s.clone))
 	mux.HandleFunc("/api/token", s.api("POST", s.token))
 	mux.HandleFunc("/api/refresh", s.api("POST", s.refresh))
+	mux.HandleFunc("/api/browse", s.api("POST", s.browse))
 	return mux
 }
 
@@ -90,6 +91,36 @@ func (s *uiServer) api(method string, fn func(context.Context, *http.Request) (a
 		}
 		_ = json.NewEncoder(w).Encode(res)
 	}
+}
+
+// browse opens a native file picker on this machine and returns the chosen path.
+// An empty path means the user cancelled or no picker is available.
+func (s *uiServer) browse(ctx context.Context, _ *http.Request) (any, error) {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "windows":
+		ps := `Add-Type -AssemblyName System.Windows.Forms; ` +
+			`$d = New-Object System.Windows.Forms.OpenFileDialog; ` +
+			`$d.Title = 'Select GitHub App private key (.pem)'; ` +
+			`$d.Filter = 'PEM key (*.pem)|*.pem|All files (*.*)|*.*'; ` +
+			`$d.InitialDirectory = [Environment]::GetFolderPath('UserProfile'); ` +
+			`$f = New-Object System.Windows.Forms.Form; $f.TopMost = $true; ` +
+			`if ($d.ShowDialog($f) -eq 'OK') { [Console]::Out.Write($d.FileName) }`
+		cmd = exec.CommandContext(ctx, "powershell", "-NoProfile", "-STA", "-Command", ps)
+	case "darwin":
+		cmd = exec.CommandContext(ctx, "osascript", "-e", `POSIX path of (choose file with prompt "Select GitHub App private key (.pem)")`)
+	default:
+		cmd = exec.CommandContext(ctx, "zenity", "--file-selection", "--title=Select GitHub App private key (.pem)")
+	}
+	out, err := cmd.Output()
+	if err != nil {
+		var ee *exec.ExitError
+		if errors.As(err, &ee) {
+			return map[string]string{"path": ""}, nil
+		}
+		return nil, errors.New("no file picker available; type the path instead")
+	}
+	return map[string]string{"path": strings.TrimSpace(string(out))}, nil
 }
 
 func decode(r *http.Request, v any) error {

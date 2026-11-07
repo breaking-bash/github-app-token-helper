@@ -48,7 +48,10 @@
       <div><label for="app_id">App ID</label><input type="text" id="app_id" inputmode="numeric" placeholder="1234567"><div class="hint">Number on the App settings page</div></div>
     </div>
     <label for="key_path">Private key (.pem) path</label>
-    <input type="text" id="key_path" placeholder="C:\Users\you\.ghapp\app.pem">
+    <div style="display:flex;gap:8px">
+      <input type="text" id="key_path" placeholder="C:\Users\you\.ghapp\app.pem" style="flex:1">
+      <button type="button" id="browse">Browse…</button>
+    </div>
     <div class="row">
       <div><label for="default_owner">Default owner (optional)</label><input type="text" id="default_owner"><div class="hint">Used only when git sends no repo path</div></div>
       <div><label for="perm">Token permission</label>
@@ -147,6 +150,10 @@ $('save').onclick = e => busy(e.target, async () => {
   const r = await api('/api/config', { host: $('host').value.trim(), app_id: $('app_id').value.trim(), key_path: $('key_path').value.trim(),
     default_owner: $('default_owner').value.trim(), write: $('perm').value === 'write', installation_wide: $('wide').checked });
   toast('Saved. Authenticated as ' + r.app_name); await load();
+});
+$('browse').onclick = e => busy(e.target, async () => {
+  const r = await api('/api/browse', {});
+  if (r.path) $('key_path').value = r.path;
 });
 $('git_on').onclick = e => busy(e.target, async () => { await api('/api/git', { enable: true }); toast('git helper enabled'); await load(); });
 $('git_off').onclick = e => busy(e.target, async () => { await api('/api/git', { enable: false }); toast('git helper disabled'); await load(); });
