@@ -1,0 +1,6 @@
+*.pem
+*.key
+dist/
+/ghapp-token
+/ghapp-token.exe
+tokens.json

@@ -1,0 +1,50 @@
+name: Clone other repos with a GitHub App token (reusable)
+
+# Use inside GitHub Actions. Outside Actions use the ghapp-token CLI instead.
+# Call it from another workflow:
+#   jobs:
+#     x:
+#       uses: itsnavin/github-app-token-helper/.github/workflows/example-app-token-clone.yml@main
+#       with:
+#         owner: my-org
+#         repo: private-repo
+#       secrets:
+#         app-id: ${{ secrets.APP_ID }}
+#         private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+on:
+  workflow_call:
+    inputs:
+      owner:
+        description: "Owner (user/org) of the repository"
+        required: true
+        type: string
+      repo:
+        description: "Repository name (without owner)"
+        required: true
+        type: string
+    secrets:
+      app-id:
+        required: true
+      private-key:
+        required: true
+
+permissions: {}
+
+jobs:
+  clone:
+    runs-on: ubuntu-latest
+    steps:
+      - id: app
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.app-id }}
+          private-key: ${{ secrets.private-key }}
+          owner: ${{ inputs.owner }}
+          # Least privilege: only the repo we need, read-only contents.
+          repositories: ${{ inputs.repo }}
+          permission-contents: read
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.owner }}/${{ inputs.repo }}
+          token: ${{ steps.app.outputs.token }}
