@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GitHub App Token Helper</title>
+<style>
+  :root { --bg:#0d1117; --card:#161b22; --bd:#30363d; --fg:#e6edf3; --mut:#8b949e; --ok:#3fb950; --bad:#f85149; --acc:#2f81f7; }
+  @media (prefers-color-scheme: light) { :root { --bg:#f6f8fa; --card:#fff; --bd:#d0d7de; --fg:#1f2328; --mut:#656d76; } }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin:0; font:14px/1.5 system-ui,Segoe UI,sans-serif; background:var(--bg); color:var(--fg); }
+  header { padding:16px 24px; border-bottom:1px solid var(--bd); display:flex; align-items:center; gap:12px; }
+  header h1 { font-size:18px; margin:0; }
+  header .pill { margin-left:auto; }
+  main { max-width:900px; margin:0 auto; padding:24px; display:grid; gap:16px; }
+  .card { background:var(--card); border:1px solid var(--bd); border-radius:8px; padding:16px; }
+  .card h2 { margin:0 0 4px; font-size:15px; }
+  .card p.d { margin:0 0 12px; color:var(--mut); }
+  label { display:block; margin:10px 0 4px; font-weight:600; }
+  input[type=text], select { width:100%; padding:7px 10px; border:1px solid var(--bd); border-radius:6px; background:var(--bg); color:var(--fg); font:inherit; }
+  .row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .hint { color:var(--mut); font-size:12px; margin-top:2px; }
+  button { padding:7px 14px; border:1px solid var(--bd); border-radius:6px; background:var(--card); color:var(--fg); cursor:pointer; font:inherit; }
+  button.p { background:var(--acc); border-color:var(--acc); color:#fff; }
+  button:disabled { opacity:.5; cursor:wait; }
+  .btns { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+  .pill { padding:2px 10px; border-radius:99px; font-size:12px; border:1px solid var(--bd); }
+  .ok { color:var(--ok); } .bad { color:var(--bad); }
+  table { width:100%; border-collapse:collapse; }
+  td, th { text-align:left; padding:5px 8px; border-bottom:1px solid var(--bd); }
+  pre { background:var(--bg); border:1px solid var(--bd); border-radius:6px; padding:10px; overflow:auto; white-space:pre-wrap; word-break:break-all; margin:12px 0 0; }
+  .warn { border-left:3px solid #d29922; padding-left:10px; color:var(--mut); }
+  #toast { position:fixed; right:16px; bottom:16px; max-width:420px; padding:10px 14px; border-radius:6px; background:var(--card); border:1px solid var(--bd); display:none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🔑 GitHub App Token Helper</h1>
+  <span id="state" class="pill">loading…</span>
+</header>
+<main>
+  <section class="card">
+    <h2>1. Connect your GitHub App</h2>
+    <p class="d">Create the App first (see <a href="https://github.com/itsnavin/github-app-token-helper/blob/main/docs/SETUP.md" target="_blank" rel="noopener">setup guide</a>). The private key stays where it is; only its path is saved.</p>
+    <div class="row">
+      <div><label for="host">GitHub host</label><input type="text" id="host" value="github.com"><div class="hint">github.com or your Enterprise Server host</div></div>
+      <div><label for="app_id">App ID</label><input type="text" id="app_id" inputmode="numeric" placeholder="1234567"><div class="hint">Number on the App settings page</div></div>
+    </div>
+    <label for="key_path">Private key (.pem) path</label>
+    <input type="text" id="key_path" placeholder="C:\Users\you\.ghapp\app.pem">
+    <div class="row">
+      <div><label for="default_owner">Default owner (optional)</label><input type="text" id="default_owner"><div class="hint">Used only when git sends no repo path</div></div>
+      <div><label for="perm">Token permission</label>
+        <select id="perm"><option value="read">Contents: read-only (recommended)</option><option value="write">Contents: read &amp; write (allows push)</option></select>
+        <div class="hint">The App must have this permission</div></div>
+    </div>
+    <label><input type="checkbox" id="wide"> One token per owner (all repos) instead of one per repository</label>
+    <div class="btns"><button class="p" id="save">Verify &amp; save</button></div>
+  </section>
+
+  <section class="card">
+    <h2>2. Use with git</h2>
+    <p class="d">Register as git's credential helper so plain <code>git clone</code>/<code>pull</code> works for every repo the App is installed on.</p>
+    <div>Status: <span id="gitstate">…</span></div>
+    <div class="btns"><button class="p" id="git_on">Enable for git</button><button id="git_off">Disable</button></div>
+  </section>
+
+  <section class="card">
+    <h2>3. Clone a repository</h2>
+    <div class="row">
+      <div><label for="clone_repo">Repository</label><input type="text" id="clone_repo" placeholder="owner/repo"></div>
+      <div><label for="clone_dir">Destination folder</label><input type="text" id="clone_dir" placeholder="C:\code\repo"></div>
+    </div>
+    <div class="btns"><button class="p" id="clone">Clone</button></div>
+    <pre id="clone_out" hidden></pre>
+  </section>
+
+  <section class="card">
+    <h2>4. Tokens</h2>
+    <p class="d">Tokens older than <span id="interval">10m</span> are never reused. GitHub itself keeps them valid for 1 hour.</p>
+    <div class="row">
+      <div><label for="tok_scope">Owner or owner/repo</label><input type="text" id="tok_scope" placeholder="my-org/my-repo"></div>
+    </div>
+    <div class="btns"><button id="tok_get">Get token</button><button id="refresh">Refresh all now</button></div>
+    <pre id="tok_out" hidden></pre>
+    <div class="btns" id="tok_btns" hidden><button id="tok_copy">Copy</button><button id="tok_hide">Hide</button></div>
+    <h2 style="margin-top:16px">Installations</h2>
+    <table><thead><tr><th>Account</th><th>Repositories</th></tr></thead><tbody id="installs"></tbody></table>
+    <h2 style="margin-top:16px">Cached tokens (masked)</h2>
+    <table><thead><tr><th>Scope</th><th>Token</th><th>Age</th><th>Expires in</th></tr></thead><tbody id="cached"></tbody></table>
+  </section>
+
+  <p class="warn">Anyone with the private key can mint tokens for every installation of the App. This page only listens on this computer (127.0.0.1) and requires a one-time key from the URL it was opened with.</p>
+</main>
+<div id="toast"></div>
+<script>
+const KEY = new URLSearchParams(location.search).get('k') || '';
+const $ = id => document.getElementById(id);
+let toastTimer;
+function toast(msg, bad) {
+  const t = $('toast'); t.textContent = msg; t.style.display = 'block';
+  t.style.borderColor = bad ? 'var(--bad)' : 'var(--ok)';
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.style.display = 'none', 6000);
+}
+async function api(path, body) {
+  const r = await fetch(path, {
+    method: body === undefined ? 'GET' : 'POST',
+    headers: { 'X-UI-Key': KEY, 'Content-Type': 'application/json' },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+async function busy(btn, fn) {
+  btn.disabled = true;
+  try { await fn(); } catch (e) { toast(e.message, true); } finally { btn.disabled = false; }
+}
+function rows(tb, data) {
+  tb.replaceChildren(...data.map(r => {
+    const tr = document.createElement('tr');
+    r.forEach(c => { const td = document.createElement('td'); td.textContent = c; tr.appendChild(td); });
+    return tr;
+  }));
+  if (!data.length) { const tr = document.createElement('tr'), td = document.createElement('td'); td.colSpan = 4; td.textContent = 'none'; tr.appendChild(td); tb.appendChild(tr); }
+}
+let loaded = false;
+async function load() {
+  const s = await api('/api/status');
+  if (!loaded) {
+    $('host').value = s.host; $('app_id').value = s.app_id; $('key_path').value = s.key_path;
+    $('default_owner').value = s.default_owner; $('perm').value = s.permission; $('wide').checked = s.installation_wide;
+    loaded = true;
+  }
+  $('interval').textContent = s.interval.replace(/0s$/, '');
+  const st = $('state');
+  if (s.app_name) { st.textContent = 'Connected: ' + s.app_name; st.className = 'pill ok'; }
+  else { st.textContent = s.error ? 'Not connected' : 'Not configured'; st.className = 'pill bad'; st.title = s.error || ''; }
+  if (s.error) toast(s.error, true);
+  $('gitstate').textContent = s.git_enabled ? 'enabled ✔' : 'not enabled';
+  $('gitstate').className = s.git_enabled ? 'ok' : 'bad';
+  rows($('installs'), (s.installations || []).map(i => [i.account, i.repos]));
+  rows($('cached'), (s.cached || []).map(c => [c.scope, c.token, c.age, c.expires_in]));
+}
+$('save').onclick = e => busy(e.target, async () => {
+  const r = await api('/api/config', { host: $('host').value.trim(), app_id: $('app_id').value.trim(), key_path: $('key_path').value.trim(),
+    default_owner: $('default_owner').value.trim(), write: $('perm').value === 'write', installation_wide: $('wide').checked });
+  toast('Saved. Authenticated as ' + r.app_name); await load();
+});
+$('git_on').onclick = e => busy(e.target, async () => { await api('/api/git', { enable: true }); toast('git helper enabled'); await load(); });
+$('git_off').onclick = e => busy(e.target, async () => { await api('/api/git', { enable: false }); toast('git helper disabled'); await load(); });
+$('clone').onclick = e => busy(e.target, async () => {
+  const out = $('clone_out'); out.hidden = false; out.textContent = 'Cloning…';
+  try { const r = await api('/api/clone', { repo: $('clone_repo').value.trim(), dir: $('clone_dir').value.trim() }); out.textContent = r.output || 'Done.'; toast('Clone finished'); }
+  catch (err) { out.textContent = err.message; throw err; }
+});
+$('tok_get').onclick = e => busy(e.target, async () => {
+  const r = await api('/api/token', { scope: $('tok_scope').value.trim() });
+  $('tok_out').hidden = false; $('tok_out').textContent = r.token; $('tok_btns').hidden = false; await load();
+});
+$('tok_copy').onclick = async () => { await navigator.clipboard.writeText($('tok_out').textContent); toast('Copied'); };
+$('tok_hide').onclick = () => { $('tok_out').textContent = ''; $('tok_out').hidden = true; $('tok_btns').hidden = true; };
+$('refresh').onclick = e => busy(e.target, async () => { const r = await api('/api/refresh', {}); toast('Refreshed ' + r.count + ' token(s)'); await load(); });
+load().catch(e => toast(e.message, true));
+setInterval(() => load().catch(() => {}), 30000);
+</script>
+</body>
+</html>

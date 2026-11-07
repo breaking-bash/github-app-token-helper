@@ -33,6 +33,7 @@ Usage:
   ghapp-token install-git               register as git credential helper for the host
   ghapp-token uninstall-git             remove that registration
   ghapp-token daemon [--owner o] [--out file] [--interval 10m]   keep tokens refreshed
+  ghapp-token ui [--port n] [--no-open]  graphical setup in your browser (localhost only)
   ghapp-token status                    show config, installations, cached tokens (masked)
   ghapp-token version
 
@@ -75,6 +76,8 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		cerr = cmdInstallGit(cfgPath, stdout, true)
 	case "daemon":
 		cerr = cmdDaemon(ctx, cfgPath, rest, stdout, stderr)
+	case "ui":
+		cerr = cmdUI(ctx, cfgPath, rest, stdout)
 	case "status":
 		cerr = cmdStatus(ctx, cfgPath, stdout)
 	default:
@@ -188,6 +191,9 @@ func cmdClone(ctx context.Context, cfgPath string, args []string, stdout, stderr
 		"clone", fmt.Sprintf("https://%s/%s/%s.git", cfg.Host, s.Owner, s.Repo),
 	}
 	if len(args) == 2 {
+		if strings.HasPrefix(args[1], "-") {
+			return errors.New("destination folder must not start with '-'")
+		}
 		gargs = append(gargs, args[1])
 	}
 	return git(ctx, stdout, stderr, gargs...)
