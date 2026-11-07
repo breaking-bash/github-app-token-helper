@@ -31,6 +31,11 @@ git ──► ghapp-token credential get ──► signs a 9-minute RS256 JWT wi
 | `token [--new] <owner>[/<repo>]` | Print a token (repo-scoped if `/repo` given) |
 | `daemon [--once] [--owner o] [--out file] [--interval 10m]` | Refresh tokens on a timer; optionally write one to a file |
 | `status` | Config, App check, installations, cached tokens (masked) |
+| `ui [--port N] [--no-open]` | Local web GUI (see below) |
+
+### GUI
+
+Run `ghapp-token ui` — it opens a page in your browser where you can connect your App (App ID + key file path), enable the git helper, clone a repo, and get/refresh tokens. It listens only on `127.0.0.1`, requires a random per-run key (included in the printed URL), and never displays the private key or full cached tokens (only a token you explicitly request is shown). Press Ctrl+C to stop it.
 
 Config lives in the user config dir (`%AppData%\github-app-token-helper\config.json`, `~/.config/github-app-token-helper/config.json`). Example:
 
