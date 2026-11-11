@@ -57,6 +57,7 @@ func newUIHandler(cfgPath, key string, port int) http.Handler {
 	mux.HandleFunc("/api/token", s.api("POST", s.token))
 	mux.HandleFunc("/api/refresh", s.api("POST", s.refresh))
 	mux.HandleFunc("/api/browse", s.api("POST", s.browse))
+	mux.HandleFunc("/api/bootstrap", s.api("POST", s.bootstrap))
 	return mux
 }
 
@@ -237,6 +238,32 @@ func (s *uiServer) saveConfig(ctx context.Context, r *http.Request) (any, error)
 		return nil, err
 	}
 	return map[string]string{"app_name": name}, nil
+}
+
+func (s *uiServer) bootstrap(ctx context.Context, r *http.Request) (any, error) {
+	var in struct {
+		Host         string `json:"host"`
+		AppID        string `json:"app_id"`
+		KeyPath      string `json:"key_path"`
+		KeyPEM       string `json:"key_pem"`
+		DefaultOwner string `json:"default_owner"`
+		Write        bool   `json:"write"`
+		Repo         string `json:"repo"`
+		Dir          string `json:"dir"`
+	}
+	if err := decode(r, &in); err != nil {
+		return nil, err
+	}
+	if in.Repo != "" && in.Dir == "" {
+		return nil, errors.New("enter a destination folder to clone into")
+	}
+	o := bootstrapOpts{Host: in.Host, AppID: in.AppID, KeyPath: in.KeyPath, KeyPEM: []byte(strings.TrimSpace(in.KeyPEM)),
+		DefaultOwner: in.DefaultOwner, Write: in.Write, InstallGit: true, Repo: in.Repo, Dir: in.Dir}
+	out, err := bootstrapForUI(ctx, s.cfgPath, o)
+	if err != nil {
+		return nil, fmt.Errorf("%v\n%s", err, out)
+	}
+	return map[string]string{"output": out}, nil
 }
 
 func (s *uiServer) gitToggle(_ context.Context, r *http.Request) (any, error) {
