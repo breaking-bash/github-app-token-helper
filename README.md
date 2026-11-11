@@ -17,13 +17,16 @@ git ──► ghapp-token credential get ──► signs a 9-minute RS256 JWT wi
 
 1. Create the App, key and installation — [docs/SETUP.md](docs/SETUP.md) (step by step).
 2. Download a binary from [Releases](https://github.com/itsnavin/github-app-token-helper/releases) (verify with `checksums.txt`).
-3. `ghapp-token setup --install-git`
-4. `git clone https://github.com/OWNER/REPO.git` — done.
+3. `ghapp-token bootstrap --app-id 1234567 --key ./app.pem --copy-key OWNER/REPO ~/REPO` — saves the key (owner-only), config, enables git and clones, all in one step. (Or run `ghapp-token bootstrap` with no flags to be prompted, or use **Quick setup** in `ghapp-token ui`.)
+4. From then on, plain `git clone https://github.com/OWNER/REPO.git` works with no password prompt.
+
+On a fresh machine (e.g. Raspberry Pi) you can pipe the key instead of copying a file: `ghapp-token bootstrap --app-id 1234567 --key-stdin < app.pem`.
 
 ## Commands
 
 | Command | Purpose |
 |---|---|
+| `bootstrap [--app-id n] [--key f] [--copy-key] [--key-stdin] [--owner o] [--write] [--no-git] [owner/repo [dir]]` | One step for a fresh machine: store key, validate App, save config, register git helper, optionally clone |
 | `setup [--install-git]` | Wizard: validates App ID + key against GitHub, lists installations, saves config |
 | `install-git` / `uninstall-git` | Register/remove the credential helper for your host in `git config --global` |
 | `credential get\|store\|erase` | The git credential helper protocol (called by git) |

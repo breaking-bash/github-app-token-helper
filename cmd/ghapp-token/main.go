@@ -26,6 +26,7 @@ var version = "dev"
 const usage = `ghapp-token ` + "%s" + ` - GitHub App tokens for git, refreshed every 10 minutes
 
 Usage:
+  ghapp-token bootstrap [flags] [owner/repo [dir]]   one step: save key+config, enable git, clone
   ghapp-token setup [--install-git]     interactive setup wizard
   ghapp-token token <owner>[/<repo>]    print a fresh token (repo = scoped to that repo)
   ghapp-token clone <owner/repo> [dir]  git clone using a token (never put in the URL)
@@ -64,6 +65,8 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stdout, version)
 	case "setup":
 		cerr = cmdSetup(ctx, cfgPath, rest, stdin, stdout)
+	case "bootstrap":
+		cerr = cmdBootstrap(ctx, cfgPath, rest, stdin, stdout, stderr)
 	case "token":
 		cerr = cmdToken(ctx, cfgPath, rest, stdout)
 	case "clone":

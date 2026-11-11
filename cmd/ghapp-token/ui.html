@@ -18,7 +18,8 @@
   .card h2 { margin:0 0 4px; font-size:15px; }
   .card p.d { margin:0 0 12px; color:var(--mut); }
   label { display:block; margin:10px 0 4px; font-weight:600; }
-  input[type=text], select { width:100%; padding:7px 10px; border:1px solid var(--bd); border-radius:6px; background:var(--bg); color:var(--fg); font:inherit; }
+  input[type=text], select, textarea { width:100%; padding:7px 10px; border:1px solid var(--bd); border-radius:6px; background:var(--bg); color:var(--fg); font:inherit; }
+  textarea { font-family:ui-monospace,Consolas,monospace; font-size:12px; resize:vertical; }
   .row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
   .hint { color:var(--mut); font-size:12px; margin-top:2px; }
   button { padding:7px 14px; border:1px solid var(--bd); border-radius:6px; background:var(--card); color:var(--fg); cursor:pointer; font:inherit; }
@@ -52,6 +53,9 @@
       <input type="text" id="key_path" placeholder="C:\Users\you\.ghapp\app.pem" style="flex:1">
       <button type="button" id="browse">Browse…</button>
     </div>
+    <label for="key_pem">…or paste the key contents (fresh machine)</label>
+    <textarea id="key_pem" rows="3" spellcheck="false" autocomplete="off" placeholder="-----BEGIN RSA PRIVATE KEY-----"></textarea>
+    <div class="hint">Pasted keys are stored in this app's config folder with owner-only permissions and never shown again.</div>
     <div class="row">
       <div><label for="default_owner">Default owner (optional)</label><input type="text" id="default_owner"><div class="hint">Used only when git sends no repo path</div></div>
       <div><label for="perm">Token permission</label>
@@ -60,6 +64,17 @@
     </div>
     <label><input type="checkbox" id="wide"> One token per owner (all repos) instead of one per repository</label>
     <div class="btns"><button class="p" id="save">Verify &amp; save</button></div>
+  </section>
+
+  <section class="card">
+    <h2>Quick setup (fresh machine)</h2>
+    <p class="d">One click: uses the App ID and key above, saves the config, enables git, and optionally clones a repository.</p>
+    <div class="row">
+      <div><label for="q_repo">Repository to clone (optional)</label><input type="text" id="q_repo" placeholder="owner/repo"></div>
+      <div><label for="q_dir">Destination folder (optional)</label><input type="text" id="q_dir" placeholder="/home/pi/repo"></div>
+    </div>
+    <div class="btns"><button class="p" id="quick">Set up everything</button></div>
+    <pre id="quick_out" hidden></pre>
   </section>
 
   <section class="card">
@@ -154,6 +169,15 @@ $('save').onclick = e => busy(e.target, async () => {
 $('browse').onclick = e => busy(e.target, async () => {
   const r = await api('/api/browse', {});
   if (r.path) $('key_path').value = r.path;
+});
+$('quick').onclick = e => busy(e.target, async () => {
+  const out = $('quick_out'); out.hidden = false; out.textContent = 'Working…';
+  try {
+    const r = await api('/api/bootstrap', { host: $('host').value.trim(), app_id: $('app_id').value.trim(), key_path: $('key_path').value.trim(),
+      key_pem: $('key_pem').value, default_owner: $('default_owner').value.trim(), write: $('perm').value === 'write',
+      repo: $('q_repo').value.trim(), dir: $('q_dir').value.trim() });
+    out.textContent = r.output; $('key_pem').value = ''; toast('Setup finished'); loaded = false; await load();
+  } catch (err) { out.textContent = err.message; throw err; }
 });
 $('git_on').onclick = e => busy(e.target, async () => { await api('/api/git', { enable: true }); toast('git helper enabled'); await load(); });
 $('git_off').onclick = e => busy(e.target, async () => { await api('/api/git', { enable: false }); toast('git helper disabled'); await load(); });
